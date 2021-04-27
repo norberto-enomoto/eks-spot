@@ -1,0 +1,127 @@
+-> Create cluster
+eksctl create cluster -f eksworkshop-cluster.yaml
+kubectl get node
+
+-> Install Helm
+curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+helm version --short
+
+-> Deploy Metric Server
+https://github.com/kubernetes-sigs/metrics-server
+
+kubectl create namespace metrics
+
+helm repo add stable https://charts.helm.sh/stable
+
+helm install metrics-server \
+    stable/metrics-server \
+    --version 2.11.4 \
+    --namespace metrics
+
+kubectl get apiservice v1beta1.metrics.k8s.io -o yaml
+
+status:
+  conditions:
+  - lastTransitionTime: "2021-04-24T02:01:11Z"
+    message: all checks passed
+    reason: Passed
+    status: "True"
+    type: Available
+
+-> Install Kube Ops View
+helm install kube-ops-view \
+stable/kube-ops-view \
+--set service.type=LoadBalancer \
+--set nodeSelector.intent=control-apps \
+--version 1.2.4 \
+--set rbac.create=True
+
+helm list
+
+kubectl get svc kube-ops-view | tail -n 1 | awk '{ print "Kube-ops-view URL = http://"$4 }'
+
+kubectl proxy
+http://localhost:8001/api/v1/proxy/namespaces/default/services/kube-ops-view/
+
+
+-> Adding spot workers with EKSCTL
+eksctl create nodegroup -f spot_nodegroups.yml
+
+kubectl get nodes
+
+kubectl get nodes --show-labels --selector=lifecycle=Ec2Spot | grep Ec2Spot
+
+kubectl get nodes --show-labels --selector=lifecycle=OnDemand | grep OnDemand
+
+
+-> Deploy the node termination handler
+helm repo add eks https://aws.github.io/eks-charts
+
+helm install aws-node-termination-handler \
+             --namespace kube-system \
+             --version 0.12.0 \
+             eks/aws-node-termination-handler
+
+kubectl get daemonsets --all-namespaces
+
+
+-> Deploying the application
+kubectl apply -f monte-carlo-pi-service.yml
+
+kubectl get svc monte-carlo-pi-service | tail -n 1 | awk '{ print "monte-carlo-pi-service URL = http://"$4 }'
+
+-> Configure Cluster Autoscaler
+
+kubectl apply -f cluster_autoscaler.yml
+kubectl logs -f deployment/cluster-autoscaler -n kube-system --tail=10
+
+kubectl scale deployment/monte-carlo-pi-service --replicas=0
+kubectl scale deployment/monte-carlo-pi-service --replicas=3
+kubectl get pod --watch
+
+-> Create an HPA resource associated with the Monte Carlo Pi Service
+kubectl autoscale deployment monte-carlo-pi-service --cpu-percent=50 --min=3 --max=100
+kubectl get hpa --watch
+
+pip3 install tqdm
+
+URL=$(kubectl get svc monte-carlo-pi-service | tail -n 1 | awk '{ print $4 }')
+python3 submit_mc_pi_k8s_requests.py -p 100 -r 30 -i 30000000 -u "http://${URL}"
+time python3 submit_mc_pi_k8s_requests.py -p 100 -r 30 -i 30000000 -u "http://${URL}"
+
+
+
+
+
+
+
+
+Kube Ops View
+http://a6bd73632660844e59a635e2278d6830-1878987196.us-east-2.elb.amazonaws.com
+
+Access Key Id: AKIA5NV46L642LZVHRJ5
+Secret Access Key: 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
+Password: i@om$[%#A-EC{DP
+
+Hello,
+
+You now have access to the AWS Management Console for the account ending in 1977. ------
+
+Sign-in URL: https://922740481977.signin.aws.amazon.com/console
+User name: eks-poc
+
+Your password will be provided separately by your AWS account administrator. During your first sign-in, you must change your password.
+
+------
+
+Stay connected with AWS by creating a profile: https://pages.awscloud.com/IAM-communication-preferences.html
+
+
+
+
+
+
+
+
+
+
