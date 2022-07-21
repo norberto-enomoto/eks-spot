@@ -1,3 +1,6 @@
+-> Criar o IAM user e IAM role
+-> aws configure
+
 -> Create cluster
 eksctl create cluster -f eksworkshop-cluster.yaml
 kubectl get node
@@ -6,63 +9,37 @@ kubectl get node
 curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 helm version --short
 
--> Deploy Metric Server
-https://github.com/kubernetes-sigs/metrics-server
+-> Install metric server
+https://docs.aws.amazon.com/eks/latest/userguide/metrics-server.html
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl get deployment metrics-server -n kube-system
 
-kubectl create namespace metrics
-
-helm repo add stable https://charts.helm.sh/stable
-
-helm install metrics-server \
-    stable/metrics-server \
-    --version 2.11.4 \
-    --namespace metrics
-
-kubectl get apiservice v1beta1.metrics.k8s.io -o yaml
-
-status:
-  conditions:
-  - lastTransitionTime: "2021-04-24T02:01:11Z"
-    message: all checks passed
-    reason: Passed
-    status: "True"
-    type: Available
+-----------------------------
 
 -> Install Kube Ops View
-helm install kube-ops-view \
-stable/kube-ops-view \
---set service.type=LoadBalancer \
---set nodeSelector.intent=control-apps \
---version 1.2.4 \
---set rbac.create=True
+https://artifacthub.io/packages/helm/k8s-at-home/kube-ops-view
+helm repo add k8s-at-home https://k8s-at-home.com/charts/
+helm repo update
+helm install kube-ops-view k8s-at-home/kube-ops-view
 
-helm list
+export POD_NAME=$(kubectl get pods --namespace default -l "app.kubernetes.io/name=kube-ops-view,app.kubernetes.io/instance=kube-ops-view" -o jsonpath="{.items[0].metadata.name}")
+kubectl port-forward $POD_NAME 8080:8080
+http://127.0.0.1:8080
 
-kubectl get svc kube-ops-view | tail -n 1 | awk '{ print "Kube-ops-view URL = http://"$4 }'
-
-kubectl proxy
-http://localhost:8001/api/v1/proxy/namespaces/default/services/kube-ops-view/
+-----------------------------
 
 
 -> Adding spot workers with EKSCTL
-eksctl create nodegroup -f spot_nodegroups.yml
-
+eksctl create nodegroup -f spot-nodegroups.yml
 kubectl get nodes
-
 kubectl get nodes --show-labels --selector=lifecycle=Ec2Spot | grep Ec2Spot
-
 kubectl get nodes --show-labels --selector=lifecycle=OnDemand | grep OnDemand
 
 
 -> Deploy the node termination handler
-helm repo add eks https://aws.github.io/eks-charts
-
-helm install aws-node-termination-handler \
-             --namespace kube-system \
-             --version 0.12.0 \
-             eks/aws-node-termination-handler
-
-kubectl get daemonsets --all-namespaces
+https://artifacthub.io/packages/helm/aws/aws-node-termination-handler
+helm repo add eks https://aws.github.io/eks-charts/
+helm upgrade --install --namespace kube-system aws-node-termination-handler eks/aws-node-termination-handler
 
 
 -> Deploying the application
@@ -72,7 +49,8 @@ kubectl get svc monte-carlo-pi-service | tail -n 1 | awk '{ print "monte-carlo-p
 
 -> Configure Cluster Autoscaler
 
-kubectl apply -f cluster_autoscaler.yml
+https://docs.aws.amazon.com/pt_br/eks/latest/userguide/autoscaling.html
+kubectl apply -f cluster-autoscaler.yml
 kubectl logs -f deployment/cluster-autoscaler -n kube-system --tail=10
 
 kubectl scale deployment/monte-carlo-pi-service --replicas=0

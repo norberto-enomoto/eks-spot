@@ -20,4 +20,5 @@ nodeGroups:
         cloudWatch: true
         albIngress: true
     ssh: # use existing EC2 key
-      publicKeyName: eksworkshop
+      publicKeyName: eks-course
+      
