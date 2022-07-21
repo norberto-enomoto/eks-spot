@@ -30,7 +30,7 @@ http://127.0.0.1:8080
 
 
 -> Adding spot workers with EKSCTL
-eksctl create nodegroup -f spot-nodegroups.yml
+eksctl create nodegroup -f spot-nodegroups.yaml
 kubectl get nodes
 kubectl get nodes --show-labels --selector=lifecycle=Ec2Spot | grep Ec2Spot
 kubectl get nodes --show-labels --selector=lifecycle=OnDemand | grep OnDemand
@@ -61,18 +61,15 @@ kubectl get pod --watch
 kubectl autoscale deployment monte-carlo-pi-service --cpu-percent=50 --min=3 --max=100
 kubectl get hpa --watch
 
-pip3 install tqdm
+pip3 install -r requimerements.txt
 
 URL=$(kubectl get svc monte-carlo-pi-service | tail -n 1 | awk '{ print $4 }')
 python3 submit_mc_pi_k8s_requests.py -p 100 -r 30 -i 30000000 -u "http://${URL}"
 time python3 submit_mc_pi_k8s_requests.py -p 100 -r 30 -i 30000000 -u "http://${URL}"
 
-
-
-
-
-
-
+-> Excluir o cluster
+eksctl delete nodegroup -f spot-nodegroups.yaml --approve
+eksctl delete cluster -f eksworkshop-cluster.yaml
 
 Kube Ops View
 http://a6bd73632660844e59a635e2278d6830-1878987196.us-east-2.elb.amazonaws.com
